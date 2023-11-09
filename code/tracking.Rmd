@@ -1,0 +1,57 @@
+---
+title: "Tracking sheet"
+author: "Gabe Runte"
+date: "2023-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+```
+
+```{r, message = F}
+size = read_csv(here("data", "size_tracking - master.csv")) %>% 
+  filter(!is.na(height_cm))
+tree_ids = read_csv(here("data", "seedling_ids - master.csv")) %>% 
+  filter(total_id %in% size$seedling_id)
+
+```
+
+```{r, eval = F}
+set.seed(5446)
+rhizo_harvest = tree_ids %>% 
+  filter(inoculation== "R") %>% 
+  mutate(harvest_order = sample(seq(101:200))) %>% 
+  arrange(harvest_order)
+
+unknown_harvest = tree_ids %>% 
+  filter(inoculation== "U") %>% 
+  mutate(harvest_order = sample(seq(1:5))) %>% 
+  arrange(harvest_order)
+
+sterile_harvest = tree_ids %>% 
+  filter(inoculation== "S") %>% 
+  mutate(harvest_order = sample(seq(1:13))) %>% 
+  arrange(harvest_order)
+
+harvest_printout = bind_rows(rhizo_harvest, unknown_harvest, sterile_harvest) %>% 
+  select(3,5,6,7)
+
+#write_csv(harvest_printout, here("data", "harvest_sequence.csv"))
+```
+
+```{r}
+ggplot(size, aes(y = height_cm, x = inoculation, fill = inoculation))+
+  geom_boxplot()+theme_minimal()
+
+ggplot(size, aes(y = diameter_mm, x = inoculation, fill = inoculation))+
+  geom_boxplot()+theme_minimal()
+
+# TukeyHSD(aov(height_cm~inoculation, data = size))
+# TukeyHSD(aov(diameter_mm~inoculation, data = size))
+
+```
+
