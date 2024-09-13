@@ -10,15 +10,158 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(here)
 library(tidyverse)
+library(janitor)
+
+inoc_fill = scale_fill_manual(name = "Inoculation", breaks = c("R", "U", "S"), 
+                              labels = c("Rhizopogon", "Unknown fungus", "Sterile"), 
+                              values = c("#3E4491", "#3A9EFD", "#f7a400"))
+inoc_color = scale_color_manual(name = "Inoculation", breaks = c("R", "U", "S"), 
+                              labels = c("Rhizopogon", "Unknown fungus", "Sterile"), 
+                              values = c("#3E4491", "#3A9EFD", "#f7a400"))
 ```
 
 ```{r, message = F}
 size = read_csv(here("data", "size_tracking - master.csv")) %>% 
-  filter(!is.na(height_cm))
+  filter(!is.na(height_cm)) 
 tree_ids = read_csv(here("data", "seedling_ids - master.csv")) %>% 
   filter(total_id %in% size$seedling_id)
+colonization = read_csv(here("data", "colonization - Sheet1.csv"))
+```
+
+A quick check to make sure there are no duplicates in the most recent dataset!
+```{r, eval =F}
+new_dupes = size %>% 
+  filter(date == "08/29/2024") %>% #or whichever is the most recent date
+  group_by(seedling_id) %>% 
+  summarize(n = n())
+```
+
+
+
+```{r, message = F}
+size_wide = size %>% 
+  select(-notes, -chlorosis) %>% 
+  pivot_wider(names_from = date, values_from = c(height_cm, diameter_mm)) %>% 
+  clean_names() %>% 
+  mutate(grow_height = height_cm_08_29_2024 - height_cm_11_08_2023)%>% 
+  mutate(grow_diameter = diameter_mm_08_29_2024 - diameter_mm_11_08_2023) %>% 
+  mutate(pct_grow_ht = (height_cm_08_29_2024 - height_cm_11_08_2023)/height_cm_11_08_2023) %>% 
+  mutate(pct_grow_dia = (diameter_mm_08_29_2024 - diameter_mm_11_08_2023)/diameter_mm_11_08_2023)%>% 
+  mutate(pct_grow_ht_rec = (height_cm_08_29_2024 - height_cm_07_02_2024)/height_cm_07_02_2024) %>% 
+  mutate(pct_grow_dia_rec = (diameter_mm_08_29_2024 - diameter_mm_07_02_2024)/diameter_mm_07_02_2024)
+
+size_df = size %>% 
+  mutate(date = as_date(mdy(date)))
+```
+
+```{r}
+
+
+ggplot(size_df, aes(x = as.factor(date), y = height_cm, fill = inoculation))+
+  geom_boxplot(alpha = 0.8, outlier.shape = NA)+inoc_fill+theme_minimal()+
+  labs(x = "Date", y = "Height (cm)")
+
+ggplot(size_df, aes(x = as.factor(date), y = height_cm, fill = inoculation))+
+  geom_boxplot(alpha = 0.8, outlier.shape = NA)+inoc_fill+theme_minimal()+
+  labs(x = "Date", y = "Height (cm)")+facet_wrap(~inoculation)
+
+ggplot(size_df, aes(x = as.factor(date), y = diameter_mm, fill = inoculation))+
+  geom_boxplot(alpha = 0.8, outlier.shape = NA)+inoc_fill+theme_minimal()+
+  labs(x = "Date", y = "Diameter (mm)")
+
+ggplot(size_df, aes(x = as.factor(date), y = diameter_mm, fill = inoculation))+
+  geom_boxplot(alpha = 0.8, outlier.shape = NA)+inoc_fill+theme_minimal()+
+  labs(x = "Date", y = "Diameter (mm)")+facet_wrap(~inoculation)
+
+ggplot(size_wide, aes(x = inoculation, y = grow_height, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Height change since November (cm)")
+
+ggplot(size_wide, aes(x = inoculation, y = grow_diameter, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Diameter change since November (cm)")
+
+ggplot(size_wide, aes(x = inoculation, y = pct_grow_ht, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Percent height change since November")
+
+ggplot(size_wide, aes(x = inoculation, y = pct_grow_ht_rec, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Percent height change since February")
+
+ggplot(size_wide, aes(x = inoculation, y = pct_grow_dia, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Percent diameter change since November")
+
+ggplot(size_wide, aes(x = inoculation, y = height_cm_02_01_2024, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Current height (cm)")
+
+ggplot(size_wide, aes(x = inoculation, y = diameter_mm_02_01_2024, fill = inoculation))+
+  geom_boxplot(alpha = 0.8)+inoc_fill+theme_minimal()+
+  labs(x = "Inoculation treatment", y = "Current diameter (cm)")
+
 
 ```
+Feb harvest check
+```{r}
+hset = size_wide %>% 
+  filter(number %in% c(215, 198, 130, 145, 163, 183)) %>% 
+  mutate(col = c(1, 27, 0,0,16, 69)) %>% 
+  mutate(uncol = c(106, 55, 69,43,43, 53)) %>%
+  mutate(pct_col = col/(col+uncol))
+  
+ggplot(hset, aes(x = pct_col, y = height_cm_02_01_2024, col = inoculation))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Percent colonization", y = "Height (cm)")+inoc_color
+
+ggplot(hset, aes(x = pct_col, y = diameter_mm_02_01_2024, col = inoculation))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Percent colonization", y = "Diameter (mm)")+inoc_color
+```
+
+```{r}
+hset = size %>% 
+  filter(number %in% colonization$number) %>% 
+  left_join(colonization) %>% 
+  filter(harvest_date == date) %>% 
+  mutate(pct_col = colonized/(colonized+uncolonized)) %>% 
+  mutate(inoculation_date = "09/01/2023") %>% 
+  mutate(date = as_date(mdy(date)))%>% 
+  mutate(inoculation_date = as_date(mdy(inoculation_date))) %>% 
+  mutate(days_since = date-inoculation_date) %>% 
+  mutate(days = as.numeric(str_sub(days_since, 1,3))) %>% 
+  mutate(colperday = pct_col/days)
+
+
+ggplot(hset%>% 
+         filter(inoculation == "R"), aes(x = pct_col, y = height_cm, col = as.factor(date)))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Percent colonization", y = "Height (cm)")+
+  geom_smooth(method = "lm", se = F)
+
+ggplot(hset%>% 
+         filter(inoculation == "R"), aes(x = pct_col, y = diameter_mm, col = as.factor(date)))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Percent colonization", y = "Diameter (mm)")+
+  geom_smooth(method = "lm", se = F)
+
+ggplot(hset %>% 
+         filter(inoculation == "R"), aes(x = colperday, y = height_cm, col = as.factor(date)))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Colonization per time", y = "Height (cm)")+
+  geom_smooth(method = "lm", se = F)
+
+ggplot(hset%>% 
+         filter(inoculation == "R"), aes(x = colperday, y = diameter_mm, col = as.factor(date)))+
+  geom_point(size = 5)+theme_minimal()+labs(x = "Colonization per time", y = "Diameter (mm)")+
+  geom_smooth(method = "lm", se = F)
+
+ggplot(hset%>% 
+         filter(inoculation == "R"), aes(x = date, y = pct_col, fill = as.factor(date)))+
+  geom_boxplot()+theme_minimal()+labs(x = "Date", y = "Percent colonization")
+
+ggplot(hset%>% 
+         filter(inoculation == "R"), aes(x = date, y = colperday, fill = as.factor(date)))+
+  geom_boxplot()+theme_minimal()+labs(x = "Date", y = "Pct colonization per day")
+```
+
+
 
 ```{r, eval = F}
 set.seed(5446)
@@ -42,16 +185,3 @@ harvest_printout = bind_rows(rhizo_harvest, unknown_harvest, sterile_harvest) %>
 
 #write_csv(harvest_printout, here("data", "harvest_sequence.csv"))
 ```
-
-```{r}
-ggplot(size, aes(y = height_cm, x = inoculation, fill = inoculation))+
-  geom_boxplot()+theme_minimal()
-
-ggplot(size, aes(y = diameter_mm, x = inoculation, fill = inoculation))+
-  geom_boxplot()+theme_minimal()
-
-# TukeyHSD(aov(height_cm~inoculation, data = size))
-# TukeyHSD(aov(diameter_mm~inoculation, data = size))
-
-```
-
